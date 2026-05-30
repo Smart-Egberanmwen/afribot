@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { SupabaseService } from '../../config/supabase.service';
 
+import { EmailService } from '../notifications/email.service';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -12,6 +14,7 @@ export class AuthService {
     private readonly supabase: SupabaseService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(dto: { email: string; password: string; fullName: string; tenantId?: string }) {
@@ -41,6 +44,14 @@ export class AuthService {
       .single();
 
     if (error) throw new Error(error.message);
+
+    // Send welcome email (async/non-blocking)
+    this.emailService.sendWelcomeEmail({
+      to: user.email,
+      name: user.full_name,
+      agencyName: 'AfriBot Agency',
+      loginUrl: `${this.config.get('WEB_URL', 'https://kmlautomatedassistant.vercel.app')}/login`,
+    }).catch(err => this.logger.error(`Welcome email failed for ${user.email}: ${err.message}`));
 
     return this.issueTokens(user);
   }

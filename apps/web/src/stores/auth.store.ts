@@ -22,6 +22,8 @@ export const useAuthStore = create<AuthStore>()(
       setAuth: (user, token) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('afribot_token', token)
+          // Set cookie for middleware access
+          document.cookie = `afribot_token=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`
         }
         set({ user, token, activeTenantId: user.tenantId || null })
       },
@@ -31,6 +33,8 @@ export const useAuthStore = create<AuthStore>()(
       logout: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('afribot_token')
+          // Remove cookie
+          document.cookie = 'afribot_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
         }
         set({ user: null, token: null, activeTenantId: null })
       },
