@@ -5,9 +5,7 @@
   "installCommand": "cd apps/web && npm install",
   "framework": "nextjs",
   "regions": ["lhr1"],
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@afribot_api_url"
-  },
+
   "headers": [
     {
       "source": "/(.*)",
