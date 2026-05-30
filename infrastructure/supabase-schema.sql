@@ -10,24 +10,48 @@ CREATE EXTENSION IF NOT EXISTS "vector";  -- for RAG/embeddings
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- for fast text search
 
 -- =============================================================================
--- ENUMS
+-- ENUMS (with existence checks)
 -- =============================================================================
-CREATE TYPE user_role AS ENUM ('super_admin', 'agency_admin', 'client_admin', 'client_viewer');
-CREATE TYPE tenant_status AS ENUM ('active', 'suspended', 'trial', 'cancelled');
-CREATE TYPE subscription_plan AS ENUM ('starter', 'growth', 'pro', 'enterprise');
-CREATE TYPE conversation_status AS ENUM ('open', 'pending', 'resolved', 'bot', 'handoff');
-CREATE TYPE message_type AS ENUM ('text', 'image', 'audio', 'video', 'document', 'location', 'template', 'interactive', 'sticker', 'reaction', 'system');
-CREATE TYPE message_direction AS ENUM ('inbound', 'outbound');
-CREATE TYPE order_status AS ENUM ('pending', 'confirmed', 'processing', 'ready', 'delivered', 'cancelled', 'refunded');
-CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'failed', 'refunded', 'partial');
-CREATE TYPE inventory_movement_type AS ENUM ('sale', 'restock', 'adjustment', 'return', 'wastage');
-CREATE TYPE broadcast_status AS ENUM ('draft', 'scheduled', 'sending', 'sent', 'failed');
-CREATE TYPE ai_provider AS ENUM ('claude', 'gpt4o', 'grok', 'openrouter');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE user_role AS ENUM ('super_admin', 'agency_admin', 'client_admin', 'client_viewer');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tenant_status') THEN
+        CREATE TYPE tenant_status AS ENUM ('active', 'suspended', 'trial', 'cancelled');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_plan') THEN
+        CREATE TYPE subscription_plan AS ENUM ('starter', 'growth', 'pro', 'enterprise');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'conversation_status') THEN
+        CREATE TYPE conversation_status AS ENUM ('open', 'pending', 'resolved', 'bot', 'handoff');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'message_type') THEN
+        CREATE TYPE message_type AS ENUM ('text', 'image', 'audio', 'video', 'document', 'location', 'template', 'interactive', 'sticker', 'reaction', 'system');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'message_direction') THEN
+        CREATE TYPE message_direction AS ENUM ('inbound', 'outbound');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
+        CREATE TYPE order_status AS ENUM ('pending', 'confirmed', 'processing', 'ready', 'delivered', 'cancelled', 'refunded');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
+        CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'failed', 'refunded', 'partial');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'inventory_movement_type') THEN
+        CREATE TYPE inventory_movement_type AS ENUM ('sale', 'restock', 'adjustment', 'return', 'wastage');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'broadcast_status') THEN
+        CREATE TYPE broadcast_status AS ENUM ('draft', 'scheduled', 'sending', 'sent', 'failed');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ai_provider') THEN
+        CREATE TYPE ai_provider AS ENUM ('claude', 'gpt4o', 'grok', 'openrouter');
+    END IF;
+END $$;
 
 -- =============================================================================
 -- TENANTS (Clients / Businesses)
 -- =============================================================================
-CREATE TABLE tenants (
+CREATE TABLE IF NOT EXISTS tenants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   slug VARCHAR(100) UNIQUE NOT NULL,
   name VARCHAR(255) NOT NULL,
@@ -58,7 +82,7 @@ CREATE TABLE tenants (
 -- =============================================================================
 -- USERS
 -- =============================================================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
   auth_id VARCHAR(255) UNIQUE,        -- Clerk or Supabase Auth user ID
@@ -77,7 +101,7 @@ CREATE TABLE users (
 -- =============================================================================
 -- WHATSAPP BUSINESS ACCOUNTS
 -- =============================================================================
-CREATE TABLE whatsapp_accounts (
+CREATE TABLE IF NOT EXISTS whatsapp_accounts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   phone_number VARCHAR(20) UNIQUE NOT NULL,   -- E.164 format e.g. +2348012345678
@@ -100,7 +124,7 @@ CREATE TABLE whatsapp_accounts (
 -- =============================================================================
 -- CONTACTS (per tenant)
 -- =============================================================================
-CREATE TABLE contacts (
+CREATE TABLE IF NOT EXISTS contacts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   whatsapp_number VARCHAR(20) NOT NULL,
@@ -124,7 +148,7 @@ CREATE TABLE contacts (
 -- =============================================================================
 -- CONVERSATIONS
 -- =============================================================================
-CREATE TABLE conversations (
+CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
@@ -145,7 +169,7 @@ CREATE TABLE conversations (
 -- =============================================================================
 -- MESSAGES
 -- =============================================================================
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -176,7 +200,7 @@ CREATE TABLE messages (
 -- =============================================================================
 -- AI AGENTS (per tenant chatbot config)
 -- =============================================================================
-CREATE TABLE ai_agents (
+CREATE TABLE IF NOT EXISTS ai_agents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL DEFAULT 'AI Assistant',
@@ -203,7 +227,7 @@ CREATE TABLE ai_agents (
 -- =============================================================================
 -- KNOWLEDGE BASE (RAG per tenant)
 -- =============================================================================
-CREATE TABLE knowledge_documents (
+CREATE TABLE IF NOT EXISTS knowledge_documents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   title VARCHAR(500) NOT NULL,
@@ -216,7 +240,7 @@ CREATE TABLE knowledge_documents (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE knowledge_chunks (
+CREATE TABLE IF NOT EXISTS knowledge_chunks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   document_id UUID NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
@@ -230,7 +254,7 @@ CREATE TABLE knowledge_chunks (
 -- =============================================================================
 -- PRODUCT CATALOG (per tenant)
 -- =============================================================================
-CREATE TABLE product_categories (
+CREATE TABLE IF NOT EXISTS product_categories (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
@@ -241,7 +265,7 @@ CREATE TABLE product_categories (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   category_id UUID REFERENCES product_categories(id),
@@ -267,7 +291,7 @@ CREATE TABLE products (
 -- =============================================================================
 -- INVENTORY
 -- =============================================================================
-CREATE TABLE inventory (
+CREATE TABLE IF NOT EXISTS inventory (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -285,7 +309,7 @@ CREATE TABLE inventory (
   UNIQUE(tenant_id, product_id)
 );
 
-CREATE TABLE inventory_movements (
+CREATE TABLE IF NOT EXISTS inventory_movements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   product_id UUID NOT NULL REFERENCES products(id),
@@ -302,7 +326,7 @@ CREATE TABLE inventory_movements (
 -- =============================================================================
 -- ORDERS
 -- =============================================================================
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   order_number VARCHAR(50) NOT NULL,
@@ -330,7 +354,7 @@ CREATE TABLE orders (
   UNIQUE(tenant_id, order_number)
 );
 
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -347,7 +371,7 @@ CREATE TABLE order_items (
 -- =============================================================================
 -- MESSAGE TEMPLATES
 -- =============================================================================
-CREATE TABLE message_templates (
+CREATE TABLE IF NOT EXISTS message_templates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
@@ -365,7 +389,7 @@ CREATE TABLE message_templates (
 -- =============================================================================
 -- BROADCASTS
 -- =============================================================================
-CREATE TABLE broadcasts (
+CREATE TABLE IF NOT EXISTS broadcasts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
@@ -389,7 +413,7 @@ CREATE TABLE broadcasts (
 -- =============================================================================
 -- ANALYTICS SNAPSHOTS (pre-aggregated for performance)
 -- =============================================================================
-CREATE TABLE analytics_daily (
+CREATE TABLE IF NOT EXISTS analytics_daily (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   date DATE NOT NULL,
@@ -411,7 +435,7 @@ CREATE TABLE analytics_daily (
 -- =============================================================================
 -- AUDIT LOG
 -- =============================================================================
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -428,7 +452,7 @@ CREATE TABLE audit_logs (
 -- =============================================================================
 -- BILLING / SUBSCRIPTIONS
 -- =============================================================================
-CREATE TABLE billing_invoices (
+CREATE TABLE IF NOT EXISTS billing_invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   invoice_number VARCHAR(50) UNIQUE NOT NULL,
@@ -443,7 +467,7 @@ CREATE TABLE billing_invoices (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE usage_tracking (
+CREATE TABLE IF NOT EXISTS usage_tracking (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   month DATE NOT NULL,                   -- first day of month
@@ -459,19 +483,19 @@ CREATE TABLE usage_tracking (
 -- =============================================================================
 -- INDEXES (Performance)
 -- =============================================================================
-CREATE INDEX idx_messages_tenant_conversation ON messages(tenant_id, conversation_id);
-CREATE INDEX idx_messages_whatsapp_id ON messages(whatsapp_message_id);
-CREATE INDEX idx_messages_sent_at ON messages(tenant_id, sent_at DESC);
-CREATE INDEX idx_conversations_contact ON conversations(tenant_id, contact_id);
-CREATE INDEX idx_conversations_status ON conversations(tenant_id, status);
-CREATE INDEX idx_contacts_whatsapp ON contacts(tenant_id, whatsapp_number);
-CREATE INDEX idx_orders_tenant_status ON orders(tenant_id, status, created_at DESC);
-CREATE INDEX idx_orders_contact ON orders(contact_id);
-CREATE INDEX idx_inventory_tenant_product ON inventory(tenant_id, product_id);
-CREATE INDEX idx_analytics_daily_lookup ON analytics_daily(tenant_id, date DESC);
-CREATE INDEX idx_knowledge_chunks_embedding ON knowledge_chunks USING ivfflat (embedding vector_cosine_ops);
-CREATE INDEX idx_audit_logs_tenant ON audit_logs(tenant_id, created_at DESC);
-CREATE INDEX idx_whatsapp_accounts_phone ON whatsapp_accounts(phone_number);
+CREATE INDEX IF NOT EXISTS idx_messages_tenant_conversation ON messages(tenant_id, conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_whatsapp_id ON messages(whatsapp_message_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sent_at ON messages(tenant_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_contact ON conversations(tenant_id, contact_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_contacts_whatsapp ON contacts(tenant_id, whatsapp_number);
+CREATE INDEX IF NOT EXISTS idx_orders_tenant_status ON orders(tenant_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_contact ON orders(contact_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_tenant_product ON inventory(tenant_id, product_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_daily_lookup ON analytics_daily(tenant_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding ON knowledge_chunks USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_phone ON whatsapp_accounts(phone_number);
 
 -- =============================================================================
 -- ROW LEVEL SECURITY (Multi-tenant isolation)
@@ -505,13 +529,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_tenants_updated ON tenants;
 CREATE TRIGGER trg_tenants_updated BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_users_updated ON users;
 CREATE TRIGGER trg_users_updated BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_contacts_updated ON contacts;
 CREATE TRIGGER trg_contacts_updated BEFORE UPDATE ON contacts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_conversations_updated ON conversations;
 CREATE TRIGGER trg_conversations_updated BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_products_updated ON products;
 CREATE TRIGGER trg_products_updated BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_inventory_updated ON inventory;
 CREATE TRIGGER trg_inventory_updated BEFORE UPDATE ON inventory FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_orders_updated ON orders;
 CREATE TRIGGER trg_orders_updated BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_ai_agents_updated ON ai_agents;
 CREATE TRIGGER trg_ai_agents_updated BEFORE UPDATE ON ai_agents FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Function: deduct inventory when order confirmed
@@ -537,6 +576,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_deduct_inventory ON orders;
 CREATE TRIGGER trg_deduct_inventory
   AFTER UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION deduct_inventory_on_order();
 
@@ -597,16 +637,19 @@ VALUES (
   'active',
   'enterprise',
   0
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- Sample client 1: Restaurant
 INSERT INTO tenants (slug, name, business_type, status, subscription_plan, monthly_fee_ngn)
-VALUES ('mama-tee-kitchen', 'Mama Tee Kitchen', 'restaurant', 'active', 'growth', 2500000);
+VALUES ('mama-tee-kitchen', 'Mama Tee Kitchen', 'restaurant', 'active', 'growth', 2500000)
+ON CONFLICT (slug) DO NOTHING;
 
 -- Sample client 2: Retail/Fashion
 INSERT INTO tenants (slug, name, business_type, status, subscription_plan, monthly_fee_ngn)
-VALUES ('lagos-styles', 'Lagos Styles Boutique', 'retail', 'active', 'starter', 1500000);
+VALUES ('lagos-styles', 'Lagos Styles Boutique', 'retail', 'active', 'starter', 1500000)
+ON CONFLICT (slug) DO NOTHING;
 
 -- Sample client 3: Service business
 INSERT INTO tenants (slug, name, business_type, status, subscription_plan, monthly_fee_ngn)
-VALUES ('quickfix-auto', 'QuickFix Auto Repairs', 'automotive', 'trial', 'starter', 1500000);
+VALUES ('quickfix-auto', 'QuickFix Auto Repairs', 'automotive', 'trial', 'starter', 1500000)
+ON CONFLICT (slug) DO NOTHING;
