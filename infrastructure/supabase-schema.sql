@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url TEXT,
   phone VARCHAR(20),
   role user_role DEFAULT 'client_viewer',
+  password_hash TEXT,
   is_active BOOLEAN DEFAULT true,
   last_login_at TIMESTAMPTZ,
   notification_preferences JSONB DEFAULT '{"email": true, "whatsapp": true, "low_stock": true, "new_order": true}',

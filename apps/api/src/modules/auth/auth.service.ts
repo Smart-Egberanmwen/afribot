@@ -25,6 +25,8 @@ export class AuthService {
     if (existing) throw new ConflictException('Email already registered');
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
+    const role = dto.tenantId ? 'client_admin' : 'agency_admin';
+    const tenantId = dto.tenantId || '00000000-0000-0000-0000-000000000001';
 
     const { data: user, error } = await this.supabase.client
       .from('users')
@@ -32,8 +34,8 @@ export class AuthService {
         email: dto.email,
         full_name: dto.fullName,
         password_hash: passwordHash,
-        tenant_id: dto.tenantId || null,
-        role: dto.tenantId ? 'client_admin' : 'agency_admin',
+        tenant_id: tenantId,
+        role: role,
       })
       .select('id, email, full_name, role, tenant_id')
       .single();
