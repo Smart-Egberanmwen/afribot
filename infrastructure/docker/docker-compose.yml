@@ -1,0 +1,115 @@
+version: '3.9'
+
+services:
+  # PostgreSQL (local dev — use Supabase in production)
+  postgres:
+    image: supabase/postgres:15.1.1.78
+    container_name: afribot-postgres
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-afribot_local_pwd}
+      POSTGRES_DB: afribot
+      POSTGRES_USER: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../infrastructure/supabase-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7.2-alpine
+    container_name: afribot-redis
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API (NestJS)
+  api:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+      target: development
+    container_name: afribot-api
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-afribot_local_pwd}@postgres:5432/afribot
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - ../../.env
+    volumes:
+      - ../../apps/api/src:/app/src
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Web (Next.js)
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+      target: development
+    container_name: afribot-web
+    ports:
+      - '3000:3000'
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    env_file:
+      - ../../.env
+    volumes:
+      - ../../apps/web/src:/app/src
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # BullMQ Dashboard (queue monitoring)
+  bull-board:
+    image: deadly0/bull-board
+    container_name: afribot-bull-board
+    ports:
+      - '3002:3000'
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    depends_on:
+      - redis
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: afribot-nginx
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+      - web
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: afribot-network
