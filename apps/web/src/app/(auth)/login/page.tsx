@@ -21,7 +21,8 @@ export default function LoginPage() {
       const res = await authApi.login(form.email, form.password)
       setAuth(res.data.user, res.data.accessToken)
       toast.success(`Welcome back, ${res.data.user.fullName?.split(' ')[0] || 'Admin'}!`)
-      router.push('/dashboard')
+      // Hard navigate so browser commits the cookie before requesting /dashboard
+      window.location.href = '/dashboard'
     } catch (e: any) {
       setErr(e?.response?.data?.message || 'Invalid email or password')
     } finally {

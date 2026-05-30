@@ -22,7 +22,8 @@ export default function RegisterPage() {
       const res = await authApi.register({ email: form.email, password: form.password, fullName: form.fullName })
       setAuth(res.data.user, res.data.accessToken)
       toast.success('Account created! Welcome to AfriBot.')
-      router.push('/dashboard')
+      // Hard navigate so browser commits the cookie before requesting /dashboard
+      window.location.href = '/dashboard'
     } catch (e: any) {
       setErr(e?.response?.data?.message || 'Registration failed')
     } finally { setLoading(false) }

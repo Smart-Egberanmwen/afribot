@@ -23,7 +23,9 @@ export const useAuthStore = create<AuthStore>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('afribot_token', token)
           // Set cookie for middleware access
-          document.cookie = `afribot_token=${token}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`
+          console.log('Setting auth cookie...')
+          document.cookie = `afribot_token=${token}; path=/; max-age=31536000; SameSite=Lax; Secure`
+          console.log('Cookie status:', document.cookie.includes('afribot_token'))
         }
         set({ user, token, activeTenantId: user.tenantId || null })
       },
